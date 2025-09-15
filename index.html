@@ -4,47 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Jogo de Perguntas — Demo</title>
-  <style>
-    :root{--bg:#0f1724;--card:#0b1320;--accent:#06b6d4;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)}
-    *{box-sizing:border-box;font-family:Inter, system-ui, Arial}
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#061021 0%, #0f1724 100%);color:#e6eef6}
-    .app{max-width:980px;margin:28px auto;padding:20px}
-    header{display:flex;align-items:center;justify-content:space-between}
-    h1{margin:0;font-size:20px}
-    .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(2,6,23,0.6);}
-    nav{display:flex;gap:10px}
-    button.btn{background:var(--glass);border:1px solid rgba(255,255,255,0.04);color:var(--accent);padding:8px 14px;border-radius:8px;cursor:pointer}
-    .flex{display:flex;gap:12px}
-    .main{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:16px}
-    .menu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-    .big-btn{background:linear-gradient(90deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:18px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
-    .phase-list{display:flex;flex-wrap:wrap;gap:8px}
-    .phase{padding:10px 12px;border-radius:8px;background:var(--glass);cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
-    .phase.locked{opacity:0.45;filter:grayscale(30%)}
-    .small{font-size:13px;color:var(--muted)}
-    .center{display:flex;align-items:center;justify-content:center}
-    /* Quiz */
-    .question{font-size:18px;margin-bottom:12px}
-    .answers{display:flex;flex-direction:column;gap:8px}
-    .ans{background:#0c1a2a;padding:10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,255,255,0.02)}
-    .ans.correct{outline:2px solid rgba(34,197,94,0.6)}
-    .ans.wrong{outline:2px solid rgba(239,68,68,0.6)}
-    footer{margin-top:14px;text-align:center;color:var(--muted);font-size:13px}
-    /* Profile */
-    .leader{display:flex;flex-direction:column;gap:8px}
-    .leader-item{display:flex;justify-content:space-between;padding:8px;background:rgba(255,255,255,0.02);border-radius:8px}
-    /* forms */
-    input[type=text], input[type=password], select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
-    label{font-size:13px;color:var(--muted)}
-    .muted{color:var(--muted)}
-    .top-right{display:flex;gap:8px;align-items:center}
-    .small-btn{padding:6px 8px;border-radius:6px;font-size:13px}
-    .hidden{display:none}
-    .progress{height:8px;background:rgba(255,255,255,0.04);border-radius:8px;overflow:hidden}
-    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%}
-    /* responsive */
-    @media (max-width:880px){.main{grid-template-columns:1fr;}.app{padding:12px}}
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="app">
@@ -66,7 +26,7 @@
           </nav>
           <hr style="border:none;height:12px"> 
 
-          <!-- Tela principal com botoes grandes -->
+          <!-- Home -->
           <div id="homeScreen">
             <div class="menu-grid">
               <div class="big-btn center" id="startBtn">
@@ -78,7 +38,7 @@
               <div class="big-btn center" id="phasesBtn">
                 <div>
                   <div style="font-weight:600">Fases</div>
-                  <div class="small muted">Escolha a fase (destravadas sequencialmente)</div>
+                  <div class="small muted">Escolha a fase</div>
                 </div>
               </div>
               <div class="big-btn center" id="profileBtn">
@@ -99,7 +59,7 @@
           <!-- Fases -->
           <div id="phasesScreen" class="hidden">
             <h3>Fases</h3>
-            <p class="small muted">Clique na fase para Jogar — desbloqueio sequencial.</p>
+            <p class="small muted">Clique na fase para Jogar.</p>
             <div class="phase-list" id="phaseList"></div>
             <div style="margin-top:12px" class="small muted">Progresso da fase atual:</div>
             <div class="progress" style="margin-top:6px"><i id="phaseProgress"></i></div>
@@ -111,12 +71,8 @@
             <div style="display:flex;gap:12px;flex-direction:column">
               <label>Volume geral: <span id="volText">100</span>%</label>
               <input type="range" id="volumeRange" min="0" max="100" value="100">
-
-              <label style="margin-top:8px"><input type="checkbox" id="musicToggle" checked> Ativar música de fundo</label>
-
-              <label style="margin-top:8px">Efeitos Sonoros: <input type="checkbox" id="sfxToggle" checked></label>
-
-              <div class="small muted" style="margin-top:6px">Salvar progresso automaticamente: <input type="checkbox" id="autoSave" checked></div>
+              <label><input type="checkbox" id="musicToggle" checked> Ativar música de fundo</label>
+              <label>Efeitos Sonoros: <input type="checkbox" id="sfxToggle" checked></label>
             </div>
           </div>
 
@@ -129,19 +85,16 @@
                 <div id="profileName" style="font-weight:600">—</div>
                 <div class="small muted">Pontos: <span id="profilePoints">0</span> · Nível: <span id="profileLevel">1</span></div>
               </div>
-              <div style="text-align:right">
-                <button class="btn" id="btnLogout">Sair</button>
-              </div>
+              <div><button class="btn" id="btnLogout">Sair</button></div>
             </div>
-
             <hr style="border:none;height:12px"> 
-            <div class="small muted">Ranking Geral (local)</div>
+            <div class="small muted">Ranking Geral</div>
             <div class="leader" id="leaderboard"></div>
           </div>
 
-          <!-- Quiz Screen -->
+          <!-- Quiz -->
           <div id="quizScreen" class="hidden">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
               <div class="small muted">Fase <span id="quizPhaseNum">1</span> · Pergunta <span id="quizIndex">1</span>/<span id="quizTotal">5</span></div>
               <div class="small muted">Pontos: <span id="scoreDisplay">0</span></div>
             </div>
@@ -155,7 +108,7 @@
             </div>
           </div>
 
-          <!-- Authentication -->
+          <!-- Auth -->
           <div id="authScreen" class="hidden">
             <h3>Conta</h3>
             <div style="display:grid;gap:8px">
@@ -167,11 +120,6 @@
                 <button class="btn" id="btnSignup">Criar conta</button>
                 <button class="btn" id="btnLogin">Entrar</button>
               </div>
-              <div class="small muted">Ou conectar com GitHub (exemplo):</div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" id="githubBtn">Conectar com GitHub (placeholder)</button>
-              </div>
-              <div class="small muted">OBS: este demo guarda contas localmente no navegador (localStorage). Substitua a lógica por GitHub OAuth no servidor/Netlify/GitHub Pages + backend quando for publicar.</div>
             </div>
           </div>
 
@@ -180,7 +128,7 @@
 
       <aside>
         <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;justify-content:space-between">
             <div>
               <div class="small muted">Progresso global</div>
               <div style="font-weight:700;font-size:18px">Pontos: <span id="globalPoints">0</span></div>
@@ -197,212 +145,18 @@
             <button class="btn" id="openAuth">Conta</button>
           </div>
         </div>
-
-        <div style="height:12px"></div>
-
-        <div class="card">
-          <div class="small muted">Dicas</div>
-          <ul style="margin:8px 0;padding-left:18px;color:var(--muted)">
-            <li>Complete fases para desbloquear a próxima.</li>
-            <li>Acumule pontos para subir de nível.</li>
-            <li>O ranking é local — você pode integrar com servidor/GitHub depois.</li>
-          </ul>
-        </div>
       </aside>
     </div>
 
     <footer>
-      Demo — jogo de perguntas. Código pronto para colocar no GitHub e ajustar autenticação/OAuth.
+      Demo — jogo de perguntas.
     </footer>
   </div>
 
-<script>
-// ---------- Dados do jogo (perguntas por fase) ----------
-const PHASES = [
-  { id:1, title:'Fase 1 — Básico', questions:[
-    {q:'Qual a capital do Brasil?', a:['Brasília','São Paulo','Rio de Janeiro','Salvador'], answer:0, points:10},
-    {q:'2 + 2 = ?', a:['3','4','5','6'], answer:1, points:8},
-    {q:'Qual a cor do céu em dia claro?', a:['Verde','Azul','Amarelo','Roxo'], answer:1, points:6},
-    {q:'HTML é usado para?', a:['Estilizar páginas','Estruturar conteúdo','Fazer cálculos','Enviar emails'], answer:1, points:12},
-    {q:'Qual o símbolo do elemento químico Ouro?', a:['Ag','Au','Fe','O'], answer:1, points:15}
-  ]},
-  { id:2, title:'Fase 2 — Intermediário', questions:[
-    {q:'Qual linguagem roda no navegador?', a:['Python','Ruby','JavaScript','C++'], answer:2, points:20},
-    {q:'Qual o resultado de 7 * 6?', a:['42','36','48','40'], answer:0, points:18},
-    {q:'Quem pintou a Mona Lisa?', a:['Van Gogh','Leonardo da Vinci','Pablo Picasso','Rembrandt'], answer:1, points:20},
-    {q:'Em que continente fica o Egito?', a:['Ásia','Europa','América','África'], answer:3, points:16},
-    {q:'Qual país inventou o futebol moderno?', a:['Inglaterra','Brasil','Espanha','Portugal'], answer:0, points:22}
-  ]},
-  { id:3, title:'Fase 3 — Avançado', questions:[
-    {q:'Qual a fórmula da água?', a:['H2O','CO2','O2','NaCl'], answer:0, points:30},
-    {q:'Quem escreveu "Dom Quixote"?', a:['Cervantes','Dante','Shakespeare','Tolstoy'], answer:0, points:28},
-    {q:'O teorema de Pitágoras é aplicado em triângulos?', a:['Qualquer triângulo','Triângulos retângulos','Triângulos obtusos','Triângulos equiláteros'], answer:1, points:26},
-    {q:'Qual a velocidade aproximada da luz no vácuo (m/s)?', a:['3x10^8','3000','3x10^6','300'], answer:0, points:32},
-    {q:'Quem propôs a teoria da relatividade?', a:['Newton','Einstein','Galileu','Bohr'], answer:1, points:34}
-  ]}
-];
+  <audio id="bgMusic" loop autoplay>
+    <source src="https://www.bensound.com/bensound-music/bensound-creativeminds.mp3" type="audio/mp3">
+  </audio>
 
-// ---------- Utilitários de armazenamento local ----------
-const STORAGE_KEY = 'quiz_game_v1';
-function loadState(){
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if(!raw) return null;
-  try{return JSON.parse(raw);}catch(e){return null}
-}
-function saveState(state){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-// ---------- Estado em memória ----------
-let state = loadState() || {
-  accounts: {}, // user -> {pass, points, unlocked: [1], unlockedAt:..., level}
-  currentUser: null,
-  settings: {volume:100,music:true,sfx:true,autoSave:true},
-  progress: {phase:1, scores:{}} // progress per user stored in account
-};
-
-// ---------- Sons (WebAudio simples) ----------
-const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let musicOsc=null; let musicGain=null;
-function startMusic(){
-  stopMusic();
-  musicOsc = AudioCtx.createOscillator();
-  musicGain = AudioCtx.createGain();
-  musicOsc.type='sine';
-  musicOsc.frequency.value=220;
-  musicGain.gain.value = (state.settings.volume/100) * 0.03;
-  musicOsc.connect(musicGain).connect(AudioCtx.destination);
-  musicOsc.start();
-}
-function stopMusic(){ if(musicOsc){try{musicOsc.stop()}catch(e){} musicOsc.disconnect(); musicOsc=null} }
-function sfxBeep(){ if(!state.settings.sfx) return; const g=AudioCtx.createGain(); const o=AudioCtx.createOscillator(); o.type='square'; o.frequency.value=600; g.gain.value=(state.settings.volume/100)*0.08; o.connect(g).connect(AudioCtx.destination); o.start(); setTimeout(()=>{o.stop();o.disconnect();},120); }
-
-// ---------- DOM refs ----------
-const el = id => document.getElementById(id);
-const screens = ['homeScreen','phasesScreen','configsScreen','perfilScreen','quizScreen','authScreen'];
-function showScreen(name){ screens.forEach(s=>el(s).classList.add('hidden')); el(name).classList.remove('hidden'); }
-
-// ---------- Inicialização UI ----------
-function initUI(){
-  // attach buttons
-  el('btnFases').onclick = ()=>openPhases();
-  el('phasesBtn').onclick = ()=>openPhases();
-  el('btnConfigs').onclick = ()=>{ showScreen('configsScreen'); }
-  el('settingsBtn').onclick = ()=>{ showScreen('configsScreen'); }
-  el('btnPerfil').onclick = ()=>{ showScreen('perfilScreen'); renderProfile(); }
-  el('profileBtn').onclick = ()=>{ showScreen('perfilScreen'); renderProfile(); }
-  el('startBtn').onclick = ()=>{ playCurrentPhase(); }
-  el('quickStart').onclick = ()=>{ playCurrentPhase(); }
-  el('openAuth').onclick = ()=>{ showScreen('authScreen'); }
-  el('openProfileBtn').onclick = ()=>{ showScreen('authScreen'); }
-
-  // auth
-  el('btnSignup').onclick = signup;
-  el('btnLogin').onclick = login;
-  el('btnLogout').onclick = ()=>{ state.currentUser=null; persist(); updateUI(); alert('Desconectado'); }
-  el('githubBtn').onclick = ()=>alert('Substitua por GitHub OAuth no deploy. Este é apenas um placeholder.');
-
-  // configs
-  el('volumeRange').oninput = (e)=>{ state.settings.volume = +e.target.value; el('volText').innerText = state.settings.volume; applyVolume(); if(state.settings.music) startMusic(); if(state.settings.autoSave) persist(); }
-  el('musicToggle').onchange = (e)=>{ state.settings.music = e.target.checked; if(state.settings.music) startMusic(); else stopMusic(); persist(); }
-  el('sfxToggle').onchange = (e)=>{ state.settings.sfx = e.target.checked; persist(); }
-  el('autoSave').onchange = (e)=>{ state.settings.autoSave = e.target.checked; persist(); }
-
-  // quiz controls
-  el('btnNext').onclick = ()=>nextQuestion();
-  el('btnFinish').onclick = ()=>{ if(confirm('Deseja sair da fase? Progresso será salvo.')){ endPhase(); } };
-
-  // auth quick login test
-  if(!state.accounts['player']){
-    state.accounts['player'] = {pass:btoa('1234'), points:0, unlocked:[1], level:1, best:0};
-    persist();
-  }
-
-  // render phases
-  renderPhaseList();
-  updateUI();
-  if(state.settings.music) startMusic();
-}
-
-function applyVolume(){ AudioCtx && (AudioCtx.destination.gain && (AudioCtx.destination.gain.value = state.settings.volume/100)); el('globalPoints').innerText = getGlobalPoints(); }
-
-function persist(){ saveState(state); }
-
-// ---------- Phase list UI ----------
-function renderPhaseList(){
-  const container = el('phaseList'); container.innerHTML='';
-  const currentUser = state.currentUser ? state.accounts[state.currentUser] : null;
-  const unlocked = currentUser ? currentUser.unlocked : [1];
-  PHASES.forEach(p=>{
-    const div = document.createElement('div'); div.className='phase';
-    if(!unlocked.includes(p.id)) div.classList.add('locked');
-    div.innerHTML = `<div style="font-weight:600">${p.title}</div><div class='small muted'>Perguntas: ${p.questions.length}</div>`;
-    div.onclick = ()=>{
-      if(!unlocked.includes(p.id)){ alert('Fase trancada. Complete as fases anteriores para desbloquear.'); return; }
-      startPhase(p.id);
-    }
-    container.appendChild(div);
-  });
-}
-
-// ---------- Authentication (client-side demo) ----------
-function signup(){ const u=el('authUser').value.trim(); const p=el('authPass').value; if(!u||!p){alert('Informe usuário e senha');return;} if(state.accounts[u]){alert('Usuário já existe');return;} state.accounts[u]={pass:btoa(p),points:0,unlocked:[1],level:1,best:0}; state.currentUser=u; persist(); updateUI(); alert('Conta criada e logada como '+u); }
-function login(){ const u=el('authUser').value.trim(); const p=el('authPass').value; if(!u||!p){alert('Informe usuário e senha');return;} const acc=state.accounts[u]; if(!acc||acc.pass!==btoa(p)){alert('Usuário/senha inválidos');return;} state.currentUser=u; persist(); updateUI(); alert('Logado como '+u); }
-
-// ---------- Gameplay ----------
-let session = null; // holds current phase session
-function startPhase(phaseId){ const phase = PHASES.find(x=>x.id===phaseId); if(!phase){alert('Fase não encontrada');return;} session = {phaseId, index:0, correct:0, score:0, answers:[]}; el('quizPhaseNum').innerText = phaseId; el('quizTotal').innerText = phase.questions.length; renderQuestion(); showScreen('quizScreen'); }
-function playCurrentPhase(){ const user = state.currentUser; const unlocked = user ? state.accounts[user].unlocked : [1]; const cur = user ? Math.max(...state.accounts[user].unlocked) : 1; const target = Math.max(1, cur); startPhase(target); }
-
-function renderQuestion(){ const p = PHASES.find(x=>x.id===session.phaseId); const q = p.questions[session.index]; el('questionText').innerText = q.q; el('quizIndex').innerText = session.index+1; el('scoreDisplay').innerText = (state.currentUser? state.accounts[state.currentUser].points:0) + session.score; const ansList = el('answersList'); ansList.innerHTML=''; q.a.forEach((opt,i)=>{ const b=document.createElement('div'); b.className='ans'; b.innerText = opt; b.onclick = ()=>selectAnswer(i); ansList.appendChild(b); }); el('btnNext').disabled=true; }
-
-function selectAnswer(i){ if(!session) return; const p = PHASES.find(x=>x.id===session.phaseId); const q = p.questions[session.index]; const items = Array.from(document.querySelectorAll('.ans')); items.forEach((it,idx)=>{ if(idx===q.answer) it.classList.add('correct'); if(idx===i && idx!==q.answer) it.classList.add('wrong'); }); const earned = (i===q.answer) ? q.points : 0; session.score += earned; session.answers.push({selected:i,correct:q.answer,earned}); sfxBeep(); el('btnNext').disabled=false; // allow next
-}
-
-function nextQuestion(){ const p = PHASES.find(x=>x.id===session.phaseId); session.index++; if(session.index >= p.questions.length){ // fase finalizada
-  // adicionar pontos à conta
-  finishPhase();
-}else{ renderQuestion(); }
-}
-
-function finishPhase(){ // called when user reaches end
-  const p = PHASES.find(x=>x.id===session.phaseId);
-  const totalScore = session.score;
-  alert(`Fase ${p.id} concluída! Você ganhou ${totalScore} pontos.`);
-  // assign
-  if(state.currentUser){ const acc = state.accounts[state.currentUser]; acc.points += totalScore; acc.best = Math.max(acc.best,totalScore); // unlock next
-    if(!acc.unlocked.includes(p.id+1) && PHASES.some(x=>x.id===p.id+1)) acc.unlocked.push(p.id+1);
-    // level up basic: a cada 100 pontos level++
-    acc.level = 1 + Math.floor(acc.points / 100);
-  }
-  persist(); session=null; renderPhaseList(); updateUI(); showScreen('homeScreen'); renderLeaderboard(); }
-
-function endPhase(){ // leave early and save partial
-  if(session){ if(state.currentUser){ state.accounts[state.currentUser].points += session.score; state.accounts[state.currentUser].level = 1 + Math.floor(state.accounts[state.currentUser].points / 100); }
-    persist(); session=null; renderPhaseList(); updateUI(); showScreen('homeScreen'); }
-}
-
-// wrapper to avoid duplicated finish calls
-function finishPhaseIfNeeded(){ if(session) finishPhase(); }
-
-// ---------- Wrapper called at end of all questions ----------
-function finishPhase(){ if(!session) return; const p = PHASES.find(x=>x.id===session.phaseId); const totalScore = session.score; if(state.currentUser){ const acc = state.accounts[state.currentUser]; acc.points += totalScore; acc.best = Math.max(acc.best,totalScore); if(!acc.unlocked.includes(p.id+1) && PHASES.some(x=>x.id===p.id+1)) acc.unlocked.push(p.id+1); acc.level = 1 + Math.floor(acc.points / 100); } else { // guest: store global progress (in localStorage root)
-    // nothing special
-  }
-  persist(); session=null; renderPhaseList(); updateUI(); renderLeaderboard(); showScreen('homeScreen'); alert('Fase finalizada! Você ganhou ' + totalScore + ' pontos.'); }
-
-// ---------- Leaderboard & Profile UI ----------
-function renderProfile(){ el('profileName').innerText = state.currentUser || 'Visitante'; const acc = state.currentUser ? state.accounts[state.currentUser] : null; el('profilePoints').innerText = acc ? acc.points : 0; el('profileLevel').innerText = acc ? acc.level : 1; renderLeaderboard(); }
-function renderLeaderboard(){ const arr = Object.entries(state.accounts).map(([u,o])=>({user:u,points:o.points,level:o.level,best:o.best})); arr.sort((a,b)=>b.points-a.points); const lb = el('leaderboard'); lb.innerHTML=''; arr.slice(0,10).forEach((it,idx)=>{ const div = document.createElement('div'); div.className='leader-item'; div.innerHTML = `<div><strong>#${idx+1} ${it.user}</strong><div class='small muted'>Best:${it.best} · Nível:${it.level}</div></div><div style='text-align:right'><div style='font-weight:700'>${it.points} pts</div></div>`; lb.appendChild(div); }); }
-
-// ---------- Misc ----------
-function updateUI(){ el('welcomeTxt').innerText = state.currentUser ? 'Olá, '+state.currentUser : 'Olá, visitante'; el('globalPoints').innerText = getGlobalPoints(); el('globalLevel').innerText = getGlobalLevel(); el('volText').innerText = state.settings.volume; el('volumeRange').value = state.settings.volume; el('musicToggle').checked = !!state.settings.music; el('sfxToggle').checked = !!state.settings.sfx; renderPhaseList(); renderProfile(); }
-function getGlobalPoints(){ return Object.values(state.accounts).reduce((s,a)=>s+(a.points||0),0); }
-function getGlobalLevel(){ return 1 + Math.floor(getGlobalPoints()/100); }
-
-// ---------- Boot ----------
-initUI();
-
-</script>
+  <script src="script.js"></script>
 </body>
 </html>
