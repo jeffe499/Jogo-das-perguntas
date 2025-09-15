@@ -37,7 +37,6 @@ const shopItems = [
   { id: "pular", name: "Pular pergunta", cost: 12, desc: "Pula a pergunta atual sem ganhar pontos." },
   { id: "dobro", name: "Dobrar pontos", cost: 18, desc: "Dobrar pontos da próxima resposta correta." },
   { id: "revelar", name: "Revelar resposta", cost: 25, desc: "Mostra qual é a alternativa correta imediatamente." },
-  { id: "tempo", name: "+10s tempo", cost: 8, desc: "Adiciona 10 segundos extras (se tiver temporizador numa futura versão)." },
   { id: "autodica", name: "Auto-dica", cost: 30, desc: "Usa automaticamente 1 dica ao entrar em cada fase." }
 ];
 
