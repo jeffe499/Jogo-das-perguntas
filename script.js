@@ -1,5 +1,5 @@
 // ==================== CONFIG JSONBIN ====================
-const BIN_ID = "673758f4ad19ca34f8a7a8d4"; // substitua se precisar
+const BIN_ID = "68c87306ae596e708fefd134"; // substitua se precisar
 const MASTER_KEY = "$2a$10$3LMKVXiRGejkqgkKPn1PLue3gId0dWY/xN2fjHq1RCtx8UPYZicfq";
 const ACCESS_KEY = "$2a$10$.eBKyMRaEA5nsuvcIqG/teVQucKp221vsKckeHgMWpGnF6E0j9tDO";
 
