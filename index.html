@@ -84,19 +84,29 @@
                 <div class="small muted">Usuário atual</div>
                 <div id="profileName" style="font-weight:600">—</div>
                 <div class="small muted">Pontos: <span id="profilePoints">0</span> · Nível: <span id="profileLevel">1</span></div>
+                <div class="small muted">Itens: <span id="profileItems">—</span></div>
               </div>
-              <div><button class="btn" id="btnLogout">Sair</button></div>
+              <div style="text-align:right">
+                <button class="btn" id="btnLogout">Sair</button>
+              </div>
             </div>
+
             <hr style="border:none;height:12px"> 
-            <div class="small muted">Ranking Geral</div>
-            <div class="leader" id="leaderboard"></div>
+            <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+              <div class="small muted">Ranking Geral</div>
+              <button class="btn small-btn" id="showRankingBtn">Mostrar Ranking</button>
+            </div>
+            <div id="leaderboard" style="margin-top:8px"></div>
+
+            <hr style="border:none;height:12px"> 
+            <div id="shopContainer"></div>
           </div>
 
           <!-- Quiz -->
           <div id="quizScreen" class="hidden">
             <div style="display:flex;justify-content:space-between;margin-bottom:8px">
               <div class="small muted">Fase <span id="quizPhaseNum">1</span> · Pergunta <span id="quizIndex">1</span>/<span id="quizTotal">5</span></div>
-              <div class="small muted">Pontos: <span id="scoreDisplay">0</span></div>
+              <div class="small muted">Pontos (sessão): <span id="scoreDisplay">0</span></div>
             </div>
             <div class="question card" id="questionCard">
               <div class="question" id="questionText">Pergunta aparecerá aqui</div>
@@ -153,7 +163,8 @@
     </footer>
   </div>
 
-  <audio id="bgMusic" loop autoplay>
+  <!-- música de fundo (pode trocar a URL por uma sua) -->
+  <audio id="bgMusic" loop>
     <source src="https://www.bensound.com/bensound-music/bensound-creativeminds.mp3" type="audio/mp3">
   </audio>
 

@@ -1,6 +1,4 @@
-:root {
-  --bg:#0f1724;--card:#0b1320;--accent:#06b6d4;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)
-}
+:root{--bg:#0f1724;--card:#0b1320;--accent:#06b6d4;--muted:#94a3b8;--glass:rgba(255,255,255,0.03)}
 *{box-sizing:border-box;font-family:Inter, system-ui, Arial}
 html,body{height:100%;margin:0;background:linear-gradient(180deg,#061021 0%, #0f1724 100%);color:#e6eef6}
 .app{max-width:980px;margin:28px auto;padding:20px}
@@ -34,4 +32,6 @@ label{font-size:13px;color:var(--muted)}
 .hidden{display:none}
 .progress{height:8px;background:rgba(255,255,255,0.04);border-radius:8px;overflow:hidden}
 .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%}
+table{width:100%;border-collapse:collapse}
+table th, table td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left}
 @media (max-width:880px){.main{grid-template-columns:1fr;}.app{padding:12px}}
