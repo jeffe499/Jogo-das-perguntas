@@ -1,9 +1,10 @@
+// script.js — arquivo completo
 // ==================== CONFIG JSONBIN ====================
-const BIN_ID = "68c87306ae596e708fefd134"; // substitua se precisar
+const BIN_ID = "68c879f9d0ea881f407f0797";
 const MASTER_KEY = "$2a$10$3LMKVXiRGejkqgkKPn1PLue3gId0dWY/xN2fjHq1RCtx8UPYZicfq";
-const ACCESS_KEY = "$2a$10$.eBKyMRaEA5nsuvcIqG/teVQucKp221vsKckeHgMWpGnF6E0j9tDO";
+const ACCESS_KEY = "$2a$10$1gKTJqvxP6cwzqa972KtievzGRIkUilZAt66wtS7ofz3B1UP3fQfe";
 
-// ==================== DADOS (Fases / Loja) ====================
+// ==================== DADOS (fases e loja) ====================
 const phasesData = [
   {
     id: 1,
@@ -27,31 +28,76 @@ const phasesData = [
       { q: "Qual país inventou o futebol moderno?", a: ["Inglaterra","Brasil","Espanha","Portugal"], correct: 0 }
     ]
   }
-  // você pode adicionar fases aqui
 ];
 
 const shopItems = [
-  { id: "vida", name: "Vida extra", cost: 20, desc: "Permite errar uma vez sem perder pontos." },
-  { id: "elim", name: "Eliminar 2 alternativas", cost: 15, desc: "Remove duas respostas erradas." },
-  { id: "dica", name: "Dica", cost: 10, desc: "Mostra uma pista da resposta correta." }
+  { id: "vida", name: "Vida extra", cost: 20, desc: "Permite errar uma vez sem perder pontos (consumível ao usar)." },
+  { id: "elim", name: "Eliminar 2 alternativas", cost: 15, desc: "Remove duas respostas erradas para esta pergunta." },
+  { id: "dica", name: "Dica", cost: 10, desc: "Mostra uma pista (primeira letra + tamanho)." },
+  { id: "pular", name: "Pular pergunta", cost: 12, desc: "Pula a pergunta atual sem ganhar pontos." },
+  { id: "dobro", name: "Dobrar pontos", cost: 18, desc: "Dobrar pontos da próxima resposta correta." },
+  { id: "revelar", name: "Revelar resposta", cost: 25, desc: "Mostra qual é a alternativa correta imediatamente." },
+  { id: "tempo", name: "+10s tempo", cost: 8, desc: "Adiciona 10 segundos extras (se tiver temporizador numa futura versão)." },
+  { id: "autodica", name: "Auto-dica", cost: 30, desc: "Usa automaticamente 1 dica ao entrar em cada fase." }
 ];
 
 // ==================== ESTADO PADRÃO ====================
 let state = {
-  accounts: {},       // username -> { pass, points, level, items: { id:count }, unlockedPhases: [ids], best:numero }
+  accounts: {},             // username -> { pass, points, level, items:{}, unlockedPhases:[], best }
   currentUser: null,
-  settings: { volume: 100, music: true, sfx: true },
-  phasesMeta: []      // array with {id, unlocked, progress}
+  settings: {
+    volume: 100,            // 0-100
+    music: true,
+    sfx: true,
+    autoSave: true,
+    showHints: true,
+    theme: "dark",
+    playbackRate: 1.0
+  },
+  phasesMeta: []            // [{id, unlocked, progress}]
 };
 
-// ==================== HELPERS JSONBIN ====================
+// ==================== AUDIO (WebAudio para SFX) ====================
+const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const sfxGain = AudioCtx.createGain();
+sfxGain.gain.value = (state.settings.volume / 100) * 0.08;
+sfxGain.connect(AudioCtx.destination);
+
+// Helper: play short beep (type: 'correct'|'wrong')
+function playSfx(type = 'correct') {
+  if (!state.settings.sfx) return;
+  try {
+    const ctx = AudioCtx;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    if (type === 'correct') {
+      o.frequency.value = 880;
+      o.type = 'sine';
+    } else {
+      o.frequency.value = 240;
+      o.type = 'square';
+    }
+    // apply volume (respect global slider)
+    g.gain.value = ((state.settings.volume || 100) / 100) * (type === 'correct' ? 0.08 : 0.06);
+    o.connect(g).connect(ctx.destination);
+    o.start();
+    // short envelope
+    g.gain.setValueAtTime(g.gain.value, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+    setTimeout(() => {
+      try { o.stop(); o.disconnect(); g.disconnect(); } catch (e) {}
+    }, 180);
+  } catch (e) {
+    // fallback: do nothing
+    console.warn('SFX play error', e);
+  }
+}
+
+// ==================== UTIL: JSONBin ====================
 async function loadState() {
   try {
     const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-      headers: {
-        "X-Master-Key": MASTER_KEY,
-        "X-Access-Key": ACCESS_KEY
-      }
+      headers: { "X-Master-Key": MASTER_KEY, "X-Access-Key": ACCESS_KEY }
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
@@ -78,128 +124,234 @@ async function saveState() {
   }
 }
 
-// ==================== DOM Helpers ====================
+// ==================== DOM HELPERS ====================
 const el = id => document.getElementById(id);
 function showScreen(name) {
   const screens = ['homeScreen','phasesScreen','configsScreen','perfilScreen','quizScreen','authScreen'];
-  screens.forEach(s => el(s) && el(s).classList.add('hidden'));
-  el(name) && el(name).classList.remove('hidden');
+  screens.forEach(s => { const e = el(s); if (e) e.classList.add('hidden'); });
+  const t = el(name); if (t) t.classList.remove('hidden');
 }
 
 // ==================== INICIALIZAÇÃO ====================
 document.addEventListener('DOMContentLoaded', async () => {
-  // associar alguns botões globais
-  el('btnFases').onclick = () => showScreen('phasesScreen');
-  el('phasesBtn') && (el('phasesBtn').onclick = () => showScreen('phasesScreen'));
-  el('btnConfigs').onclick = () => showScreen('configsScreen');
-  el('settingsBtn') && (el('settingsBtn').onclick = () => showScreen('configsScreen'));
-  el('btnPerfil').onclick = () => { showScreen('perfilScreen'); renderProfile(); };
-  el('profileBtn') && (el('profileBtn').onclick = () => { showScreen('perfilScreen'); renderProfile(); });
-  el('openAuth').onclick = () => showScreen('authScreen');
-  el('startBtn') && (el('startBtn').onclick = () => playCurrentPhase());
-  el('quickStart') && (el('quickStart').onclick = () => playCurrentPhase());
-  el('openProfileBtn') && (el('openProfileBtn').onclick = () => showScreen('authScreen'));
-
-  el('btnSignup').onclick = signup;
-  el('btnLogin').onclick = login;
-  el('btnLogout').onclick = () => { state.currentUser = null; saveState(); updateUI(); alert('Desconectado'); };
-
-  el('musicToggle').onchange = (e) => { state.settings.music = e.target.checked; state.settings.music ? playMusic() : stopMusic(); saveState(); };
-  el('volumeRange').oninput = (e) => { state.settings.volume = +e.target.value; el('volText').innerText = state.settings.volume; setMusicVolume(); saveState(); };
-  el('btnFinish').onclick = () => { if (confirm('Deseja sair da fase? Progresso será salvo.')) endPhaseEarly(); };
-  el('showRankingBtn').onclick = () => { renderLeaderboard(true); };
-
-  // quiz controls (btnNext not used in auto flow but kept)
-  el('btnNext').onclick = () => { /* reserved */ };
+  bindBasicButtons();
 
   // load remote state
   const remote = await loadState();
   if (remote) {
-    // merge remote safely (simple replace)
-    state = remote;
-    // ensure phasesMeta consistent with phasesData
+    // merge remote safely (prefer remote for persistent fields)
+    state = Object.assign({}, state, remote);
+    state.settings = Object.assign({}, state.settings, remote.settings || {});
     ensurePhasesMeta();
   } else {
-    // initialize fresh state
     initDefaultState();
-    await saveState();
+    if (state.settings.autoSave) await saveState();
   }
 
+  applyTheme();
   renderPhaseList();
   renderProfile();
   renderShop();
+  renderConfigsUI();
   updateUI();
-  if (state.settings.music) playMusic();
+
+  // apply audio settings (volume + playbackRate)
+  setMusicVolume();
+  setMusicPlaybackRate();
+  if (state.settings.music) try { playMusic(); } catch(e){/* ignore */ }
 });
 
-// ensure phasesMeta created according to phasesData
+// ==================== BINDINGS BASICOS ====================
+function bindBasicButtons() {
+  if (el('btnFases')) el('btnFases').onclick = () => showScreen('phasesScreen');
+  if (el('phasesBtn')) el('phasesBtn').onclick = () => showScreen('phasesScreen');
+  if (el('btnConfigs')) el('btnConfigs').onclick = () => showScreen('configsScreen');
+  if (el('settingsBtn')) el('settingsBtn').onclick = () => showScreen('configsScreen');
+  if (el('btnPerfil')) el('btnPerfil').onclick = () => { showScreen('perfilScreen'); renderProfile(); };
+  if (el('profileBtn')) el('profileBtn').onclick = () => { showScreen('perfilScreen'); renderProfile(); };
+  if (el('openAuth')) el('openAuth').onclick = () => showScreen('authScreen');
+  if (el('startBtn')) el('startBtn').onclick = () => playCurrentPhase();
+  if (el('quickStart')) el('quickStart').onclick = () => playCurrentPhase();
+  if (el('openProfileBtn')) el('openProfileBtn').onclick = () => showScreen('authScreen');
+
+  if (el('btnSignup')) el('btnSignup').onclick = signup;
+  if (el('btnLogin')) el('btnLogin').onclick = login;
+  if (el('btnLogout')) el('btnLogout').onclick = () => { state.currentUser = null; if (state.settings.autoSave) saveState(); updateUI(); alert('Desconectado'); };
+
+  if (el('btnFinish')) el('btnFinish').onclick = () => { if (confirm('Deseja sair da fase? Progresso será salvo.')) endPhaseEarly(); };
+  if (el('showRankingBtn')) el('showRankingBtn').onclick = () => renderLeaderboard(true);
+}
+
+// ==================== PHASES META ====================
 function ensurePhasesMeta() {
   const ids = phasesData.map(p => p.id);
-  // add missing
-  ids.forEach((id, idx) => {
+  ids.forEach(id => {
     if (!state.phasesMeta.find(x => x.id === id)) {
       state.phasesMeta.push({ id, unlocked: id === 1, progress: 0 });
     }
   });
-  // keep order same as phasesData
   state.phasesMeta = phasesData.map(p => state.phasesMeta.find(m => m.id === p.id) || { id: p.id, unlocked: p.id === 1, progress: 0 });
 }
-
-// initial default state
 function initDefaultState() {
   state = {
     accounts: {},
     currentUser: null,
-    settings: { volume: 100, music: true, sfx: true },
+    settings: Object.assign({}, state.settings),
     phasesMeta: phasesData.map(p => ({ id: p.id, unlocked: p.id === 1, progress: 0 }))
   };
-
-  // create a demo account for quick testing
   state.accounts['player'] = { pass: btoa('1234'), points: 0, level: 1, items: {}, unlockedPhases: [1], best: 0 };
 }
 
-// ==================== AUDIO ====================
-const bgMusic = () => document.getElementById('bgMusic');
+// ==================== BG MUSIC (HTMLAudio) ====================
+function bgMusicEl() { return document.getElementById('bgMusic'); }
 function playMusic() {
-  const m = bgMusic();
+  const m = bgMusicEl();
   if (!m) return;
+  // resume AudioContext on user gesture if needed
+  if (AudioCtx.state === 'suspended') AudioCtx.resume().catch(()=>{});
   setMusicVolume();
-  m.play().catch(()=>{/* autoplay might be blocked until user interaction */});
+  setMusicPlaybackRate();
+  const p = m.play();
+  if (p && typeof p.catch === 'function') p.catch(()=>{/* autoplay blocked until interaction */});
 }
 function stopMusic() {
-  const m = bgMusic();
+  const m = bgMusicEl();
   if (m) m.pause();
 }
 function setMusicVolume() {
-  const m = bgMusic();
-  if (m) m.volume = (state.settings.volume || 100) / 100;
+  const m = bgMusicEl();
+  if (m) {
+    m.volume = Math.max(0, Math.min(1, (state.settings.volume || 100) / 100));
+  }
+  // update sfxGain as well
+  if (sfxGain) {
+    sfxGain.gain.value = Math.max(0, Math.min(1, (state.settings.volume || 100) / 100)) * 0.08;
+  }
+}
+function setMusicPlaybackRate() {
+  const m = bgMusicEl();
+  if (!m) return;
+  const wasPlaying = !m.paused;
+  // set the playback rate without reloading the source
+  try {
+    m.playbackRate = state.settings.playbackRate || 1.0;
+    // if it was playing, ensure it stays playing (do not call load or replace src)
+    if (wasPlaying) {
+      // some browsers may require a small resume call
+      m.play().catch(()=>{});
+    }
+  } catch (e) {
+    console.warn('setMusicPlaybackRate error', e);
+  }
+}
+
+// ==================== CONFIGS UI RENDER & BIND ====================
+function renderConfigsUI() {
+  // volume
+  if (el('volText')) el('volText').innerText = state.settings.volume;
+  if (el('volumeRange')) {
+    el('volumeRange').value = state.settings.volume;
+    el('volumeRange').oninput = (e) => {
+      state.settings.volume = +e.target.value;
+      if (el('volText')) el('volText').innerText = state.settings.volume;
+      setMusicVolume();
+      if (state.settings.autoSave) saveState();
+    };
+  }
+
+  // music toggle
+  if (el('musicToggle')) {
+    el('musicToggle').checked = !!state.settings.music;
+    el('musicToggle').onchange = (e) => {
+      state.settings.music = e.target.checked;
+      state.settings.music ? playMusic() : stopMusic();
+      if (state.settings.autoSave) saveState();
+    };
+  }
+
+  // sfx toggle
+  if (el('sfxToggle')) {
+    el('sfxToggle').checked = !!state.settings.sfx;
+    el('sfxToggle').onchange = (e) => {
+      state.settings.sfx = e.target.checked;
+      if (state.settings.autoSave) saveState();
+    };
+  }
+
+  // autoSave
+  if (el('autoSave')) {
+    el('autoSave').checked = !!state.settings.autoSave;
+    el('autoSave').onchange = (e) => {
+      state.settings.autoSave = e.target.checked;
+      if (state.settings.autoSave) saveState();
+    };
+  }
+
+  // showHints
+  if (el('showHints')) {
+    el('showHints').checked = !!state.settings.showHints;
+    el('showHints').onchange = (e) => {
+      state.settings.showHints = e.target.checked;
+      if (state.settings.autoSave) saveState();
+    };
+  }
+
+  // theme
+  if (el('themeToggle')) {
+    el('themeToggle').value = state.settings.theme || 'dark';
+    el('themeToggle').onchange = (e) => {
+      state.settings.theme = e.target.value;
+      applyTheme();
+      if (state.settings.autoSave) saveState();
+    };
+  }
+
+  // playback rate
+  if (el('playbackRate')) {
+    el('playbackRate').value = state.settings.playbackRate || 1.0;
+    if (el('playbackRateValue')) el('playbackRateValue').innerText = (state.settings.playbackRate || 1.0).toFixed(2);
+    el('playbackRate').oninput = (e) => {
+      const v = parseFloat(e.target.value);
+      state.settings.playbackRate = v;
+      if (el('playbackRateValue')) el('playbackRateValue').innerText = v.toFixed(2);
+      setMusicPlaybackRate(); // update without stopping
+      if (state.settings.autoSave) saveState();
+    };
+  }
+}
+
+function applyTheme() {
+  const t = state.settings.theme || 'dark';
+  document.body.classList.toggle('light-theme', t === 'light');
+  document.body.classList.toggle('dark-theme', t !== 'light');
 }
 
 // ==================== AUTENTICAÇÃO / PERFIL / RANKING ====================
 function signup() {
-  const u = el('authUser').value.trim();
-  const p = el('authPass').value;
+  const u = el('authUser') ? el('authUser').value.trim() : '';
+  const p = el('authPass') ? el('authPass').value : '';
   if (!u || !p) return alert('Informe usuário e senha');
   if (state.accounts[u]) return alert('Usuário já existe');
   state.accounts[u] = { pass: btoa(p), points: 0, level: 1, items: {}, unlockedPhases: [1], best: 0 };
   state.currentUser = u;
-  saveState();
+  if (state.settings.autoSave) saveState();
   updateUI();
   alert('Conta criada e logada como ' + u);
 }
 
 function login() {
-  const u = el('authUser').value.trim();
-  const p = el('authPass').value;
+  const u = el('authUser') ? el('authUser').value.trim() : '';
+  const p = el('authPass') ? el('authPass').value : '';
   const acc = state.accounts[u];
   if (!acc || acc.pass !== btoa(p)) return alert('Usuário/senha inválidos');
   state.currentUser = u;
-  saveState();
+  if (state.settings.autoSave) saveState();
   updateUI();
   alert('Logado como ' + u);
 }
 
 function renderProfile() {
+  if (!el('profileName')) return;
   el('profileName').innerText = state.currentUser || 'Visitante';
   const acc = state.currentUser ? state.accounts[state.currentUser] : null;
   el('profilePoints').innerText = acc ? acc.points : 0;
@@ -208,27 +360,23 @@ function renderProfile() {
   renderLeaderboard(false);
 }
 
-// leaderboard: if showTable true, renders full table; else renders compact list
 function renderLeaderboard(showTable = false) {
   const arr = Object.entries(state.accounts).map(([u,o]) => ({ user: u, points: o.points || 0, level: o.level || 1 }));
   arr.sort((a,b) => b.points - a.points);
   const lb = el('leaderboard');
+  if (!lb) return;
   lb.innerHTML = '';
   if (showTable) {
     const table = document.createElement('table');
-    const thead = document.createElement('thead');
-    thead.innerHTML = `<tr><th>Posição</th><th>Jogador</th><th>Pontos</th><th>Nível</th></tr>`;
-    table.appendChild(thead);
-    const tbody = document.createElement('tbody');
+    table.innerHTML = `<thead><tr><th>Posição</th><th>Jogador</th><th>Pontos</th><th>Nível</th></tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
     arr.forEach((it, idx) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>#${idx+1}</td><td>${it.user}</td><td>${it.points}</td><td>${it.level}</td>`;
       tbody.appendChild(tr);
     });
-    table.appendChild(tbody);
     lb.appendChild(table);
   } else {
-    // compact top 5 display
     arr.slice(0,5).forEach((it, idx) => {
       const div = document.createElement('div');
       div.className = 'leader-item';
@@ -236,17 +384,11 @@ function renderLeaderboard(showTable = false) {
       lb.appendChild(div);
     });
   }
-  // update global counters
-  el('globalPoints').innerText = getGlobalPoints();
-  el('globalLevel').innerText = getGlobalLevel();
+  if (el('globalPoints')) el('globalPoints').innerText = getGlobalPoints();
+  if (el('globalLevel')) el('globalLevel').innerText = getGlobalLevel();
 }
-
-function getGlobalPoints() {
-  return Object.values(state.accounts).reduce((s,a) => s + (a.points||0), 0);
-}
-function getGlobalLevel() {
-  return 1 + Math.floor(getGlobalPoints() / 100);
-}
+function getGlobalPoints() { return Object.values(state.accounts).reduce((s,a) => s + (a.points||0), 0); }
+function getGlobalLevel() { return 1 + Math.floor(getGlobalPoints() / 100); }
 
 // ==================== LOJA ====================
 function renderShop() {
@@ -256,10 +398,13 @@ function renderShop() {
   shopItems.forEach(it => {
     const div = document.createElement('div');
     div.className = 'phase';
-    div.innerHTML = `<strong>${it.name}</strong> (${it.cost} pts)<br><span class='small muted'>${it.desc}</span>`;
+    div.style.display = 'flex';
+    div.style.justifyContent = 'space-between';
+    div.style.alignItems = 'center';
+    div.innerHTML = `<div><strong>${it.name}</strong> <div class='small muted'>${it.desc}</div></div><div style="text-align:right">${it.cost} pts</div>`;
     const buyBtn = document.createElement('button');
     buyBtn.className = 'btn small-btn';
-    buyBtn.style.marginLeft = '8px';
+    buyBtn.style.marginLeft = '12px';
     buyBtn.innerText = 'Comprar';
     buyBtn.onclick = (e) => { e.stopPropagation(); buyItem(it.id); };
     div.appendChild(buyBtn);
@@ -275,7 +420,7 @@ function buyItem(itemId) {
   if ((acc.points || 0) < item.cost) return alert('Pontos insuficientes!');
   acc.points -= item.cost;
   acc.items[itemId] = (acc.items[itemId] || 0) + 1;
-  saveState();
+  if (state.settings.autoSave) saveState();
   renderProfile();
   alert(`Comprou ${item.name}! Agora você tem ${acc.items[itemId]}`);
 }
@@ -283,11 +428,13 @@ function buyItem(itemId) {
 // ==================== FASES & QUIZ ====================
 function renderPhaseList() {
   const container = el('phaseList');
+  if (!container) return;
   container.innerHTML = '';
   state.phasesMeta.forEach(pmeta => {
     const div = document.createElement('div');
     div.className = 'phase' + (pmeta.unlocked ? '' : ' locked');
-    div.innerHTML = `<div style="font-weight:600">Fase ${pmeta.id}</div><div class="small muted">Perguntas: ${getPhaseQuestions(pmeta.id).length} · Progresso: ${pmeta.progress}/5</div>`;
+    const qCount = (phasesData.find(p => p.id === pmeta.id)?.questions?.length) || 0;
+    div.innerHTML = `<div style="font-weight:600">${pmeta.id} — Fase</div><div class="small muted">Perguntas: ${qCount} · Progresso: ${pmeta.progress}/${Math.min(5,qCount)}</div>`;
     div.onclick = () => {
       if (!pmeta.unlocked) return alert('Fase trancada. Complete as fases anteriores.');
       startQuiz(pmeta.id);
@@ -301,26 +448,25 @@ function getPhaseQuestions(phaseId) {
   return phase ? phase.questions : [];
 }
 
-// session vars for quiz
-let session = null; // {phaseId, index, score, livesUsed, usedItems: {...}}
+let session = null; // session object during quiz
 
-// start playing current unlocked max phase
 function playCurrentPhase() {
   if (!state.currentUser) { alert('Entre em sua conta para salvar progresso.'); showScreen('authScreen'); return; }
-  const unlocked = state.accounts[state.currentUser].unlockedPhases || [1];
+  const acc = state.accounts[state.currentUser];
+  const unlocked = acc ? (acc.unlockedPhases || [1]) : [1];
   const current = Math.max(...unlocked);
   startQuiz(current);
 }
 
 function startQuiz(phaseId) {
-  const questions = getPhaseQuestions(phaseId).slice(0,5); // use first 5 (as requested)
+  const questions = getPhaseQuestions(phaseId).slice(0,5);
   session = {
     phaseId,
     questions,
     index: 0,
     score: 0,
-    lives: (state.accounts[state.currentUser] && state.accounts[state.currentUser].items && state.accounts[state.currentUser].items['vida']) || 0,
-    usedItems: { elim: 0, dica: 0 }
+    usedItems: { elim: 0, dica: 0, pular: 0, revelar: 0 },
+    doubleNext: false
   };
   showScreen('quizScreen');
   renderQuestion();
@@ -328,16 +474,20 @@ function startQuiz(phaseId) {
 
 function renderQuestion() {
   if (!session) return;
+  cleanupQuestionCardControls();
   const q = session.questions[session.index];
-  el('quizPhaseNum').innerText = session.phaseId;
-  el('quizIndex').innerText = session.index + 1;
-  el('quizTotal').innerText = session.questions.length;
-  el('scoreDisplay').innerText = session.score;
-  el('questionText').innerText = q.q;
+  if (!q) return finishPhase();
+
+  if (el('quizPhaseNum')) el('quizPhaseNum').innerText = session.phaseId;
+  if (el('quizIndex')) el('quizIndex').innerText = session.index + 1;
+  if (el('quizTotal')) el('quizTotal').innerText = session.questions.length;
+  if (el('scoreDisplay')) el('scoreDisplay').innerText = session.score;
+  if (el('questionText')) el('questionText').innerText = q.q;
+
   const ansList = el('answersList');
+  if (!ansList) return;
   ansList.innerHTML = '';
 
-  // create answer elements
   q.a.forEach((txt, idx) => {
     const b = document.createElement('div');
     b.className = 'ans';
@@ -346,14 +496,17 @@ function renderQuestion() {
     ansList.appendChild(b);
   });
 
-  // add small control buttons: usar item eliminar / dica se user tiver
+  // controls for items
+  const card = el('questionCard');
   const ctrl = document.createElement('div');
   ctrl.style.marginTop = '8px';
   ctrl.style.display = 'flex';
   ctrl.style.gap = '8px';
+  ctrl.dataset.ctrl = '1';
 
   const acc = state.currentUser ? state.accounts[state.currentUser] : null;
   if (acc) {
+    // Eliminar 2
     const hasElim = (acc.items['elim'] || 0) - (session.usedItems.elim || 0) > 0;
     const elimBtn = document.createElement('button');
     elimBtn.className = 'btn small-btn';
@@ -362,73 +515,116 @@ function renderQuestion() {
     elimBtn.onclick = (e) => { e.stopPropagation(); useEliminateTwo(); };
     ctrl.appendChild(elimBtn);
 
+    // Dica
     const hasDica = (acc.items['dica'] || 0) - (session.usedItems.dica || 0) > 0;
     const dicaBtn = document.createElement('button');
     dicaBtn.className = 'btn small-btn';
-    dicaBtn.innerText = 'Usar Dica';
+    dicaBtn.innerText = 'Dica';
     dicaBtn.disabled = !hasDica;
     dicaBtn.onclick = (e) => { e.stopPropagation(); useHint(); };
     ctrl.appendChild(dicaBtn);
-  }
 
-  el('questionCard').appendChild(ctrl);
-}
+    // Pular
+    const hasPular = (acc.items['pular'] || 0) > 0;
+    const pularBtn = document.createElement('button');
+    pularBtn.className = 'btn small-btn';
+    pularBtn.innerText = 'Pular';
+    pularBtn.disabled = !hasPular;
+    pularBtn.onclick = (e) => { e.stopPropagation(); useSkip(); };
+    ctrl.appendChild(pularBtn);
 
-function handleAnswer(selectedIdx, btnElem) {
-  if (!session) return;
-  const q = session.questions[session.index];
-  // mark answers
-  const ansElems = Array.from(document.querySelectorAll('.answers .ans'));
-  ansElems.forEach((elmn, idx) => {
-    if (idx === q.correct) elmn.classList.add('correct');
-    if (idx === selectedIdx && idx !== q.correct) elmn.classList.add('wrong');
-    elmn.onclick = null; // disable further clicks
-  });
+    // Dobrar próxima
+    const hasDobro = (acc.items['dobro'] || 0) > 0;
+    const dobroBtn = document.createElement('button');
+    dobroBtn.className = 'btn small-btn';
+    dobroBtn.innerText = 'Dobrar próxima';
+    dobroBtn.disabled = !hasDobro;
+    dobroBtn.onclick = (e) => { e.stopPropagation(); useDouble(); };
+    ctrl.appendChild(dobroBtn);
 
-  if (selectedIdx === q.correct) {
-    session.score += 10;
-    if (state.settings.sfx) playBeep();
-  } else {
-    // wrong
-    // check for life
-    if (session.lives > 0) {
-      session.lives -= 1;
-      alert('Você errou, mas tem uma vida extra — continuando sem penalidade de pontos.');
-    } else {
-      // no life: zero points for that question (we already do nothing)
-      if (state.settings.sfx) playBeep();
+    // Revelar
+    const hasRevelar = (acc.items['revelar'] || 0) > 0;
+    const revelarBtn = document.createElement('button');
+    revelarBtn.className = 'btn small-btn';
+    revelarBtn.innerText = 'Revelar';
+    revelarBtn.disabled = !hasRevelar;
+    revelarBtn.onclick = (e) => { e.stopPropagation(); useReveal(); };
+    ctrl.appendChild(revelarBtn);
+
+    // show vidas
+    const vidasLbl = document.createElement('div');
+    vidasLbl.className = 'small muted';
+    vidasLbl.style.marginLeft = '8px';
+    vidasLbl.innerText = `Vidas: ${acc.items['vida'] || 0}`;
+    ctrl.appendChild(vidasLbl);
+
+    // autodica auto-activation per phase
+    if (state.settings.showHints && (acc.items['autodica'] || 0) > 0 && (acc._autodicaPhaseUsed !== session.phaseId)) {
+      acc.items['autodica'] = Math.max(0, acc.items['autodica'] - 1);
+      acc._autodicaPhaseUsed = session.phaseId;
+      if (state.settings.autoSave) saveState();
+      const correctText = q.a[q.correct];
+      setTimeout(() => alert(`Auto-dica: começa com "${correctText[0]}" e tem ${correctText.length} caracteres.`), 120);
     }
   }
 
-  // next question after short delay
-  setTimeout(() => {
-    session.index++;
-    // remove the control buttons area (so next question re-adds)
-    cleanupQuestionCardControls();
-    if (session.index >= session.questions.length) {
-      finishPhase();
-    } else {
-      renderQuestion();
-    }
-  }, 900);
+  card.appendChild(ctrl);
 }
 
 function cleanupQuestionCardControls() {
   const card = el('questionCard');
   if (!card) return;
-  const controls = Array.from(card.querySelectorAll('div')).filter(d => d.style && d.style.gap === '8px');
-  controls.forEach(c => c.remove());
+  const ctls = card.querySelectorAll('[data-ctrl="1"]');
+  ctls.forEach(c => c.remove());
 }
 
+function handleAnswer(selectedIdx/*, btnElem*/) {
+  if (!session) return;
+  const q = session.questions[session.index];
+  const ansElems = Array.from(document.querySelectorAll('.answers .ans'));
+  ansElems.forEach(a => a.onclick = null);
+
+  ansElems.forEach((elmn, idx) => {
+    if (idx === q.correct) elmn.classList.add('correct');
+    if (idx === selectedIdx && idx !== q.correct) elmn.classList.add('wrong');
+  });
+
+  const acc = state.currentUser ? state.accounts[state.currentUser] : null;
+
+  if (selectedIdx === q.correct) {
+    const base = 10;
+    const points = session.doubleNext ? base * 2 : base;
+    session.score += points;
+    session.doubleNext = false;
+    playSfx('correct');
+  } else {
+    if (acc && (acc.items['vida'] || 0) > 0) {
+      acc.items['vida'] = Math.max(0, (acc.items['vida'] || 1) - 1);
+      if (state.settings.autoSave) saveState();
+      renderProfile();
+      alert('Você errou, mas usou 1 Vida Extra — vida consumida, continuando sem perda de pontos.');
+      playSfx('wrong');
+    } else {
+      playSfx('wrong');
+    }
+  }
+
+  setTimeout(() => {
+    cleanupQuestionCardControls();
+    session.index++;
+    if (session.index >= session.questions.length) finishPhase();
+    else renderQuestion();
+  }, 900);
+}
+
+// ==================== ITENS ====================
 function useEliminateTwo() {
   if (!session) return;
   const acc = state.accounts[state.currentUser];
   if (!acc || (acc.items['elim'] || 0) <= 0) { alert('Sem itens "Eliminar 2".'); return; }
-  // remove two wrong options visually
   const q = session.questions[session.index];
   const ansElems = Array.from(document.querySelectorAll('.answers .ans'));
   let removed = 0;
-  // shuffle indexes to randomly remove - but avoid removing correct
   const idxs = ansElems.map((_, i) => i).sort(() => Math.random() - 0.5);
   for (const i of idxs) {
     if (i === q.correct) continue;
@@ -442,7 +638,7 @@ function useEliminateTwo() {
   }
   acc.items['elim'] -= 1;
   session.usedItems.elim = (session.usedItems.elim || 0) + 1;
-  saveState();
+  if (state.settings.autoSave) saveState();
   renderProfile();
 }
 
@@ -451,84 +647,104 @@ function useHint() {
   const acc = state.accounts[state.currentUser];
   if (!acc || (acc.items['dica'] || 0) <= 0) { alert('Sem itens "Dica".'); return; }
   const q = session.questions[session.index];
-  // show a simple hint: reveal first letter + number of letters
   const correctText = q.a[q.correct];
-  const hint = `Dica: começa com "${correctText[0]}" e tem ${correctText.length} caracteres.`;
-  alert(hint);
+  alert(`Dica: começa com "${correctText[0]}" e tem ${correctText.length} caracteres.`);
   acc.items['dica'] -= 1;
   session.usedItems.dica = (session.usedItems.dica || 0) + 1;
-  saveState();
+  if (state.settings.autoSave) saveState();
   renderProfile();
 }
 
-// finish phase normally
-function finishPhase() {
+function useSkip() {
+  if (!session) return;
   const acc = state.accounts[state.currentUser];
+  if (!acc || (acc.items['pular'] || 0) <= 0) { alert('Sem itens "Pular".'); return; }
+  acc.items['pular'] -= 1;
+  session.usedItems.pular = (session.usedItems.pular || 0) + 1;
+  if (state.settings.autoSave) saveState();
+  renderProfile();
+  cleanupQuestionCardControls();
+  session.index++;
+  if (session.index >= session.questions.length) finishPhase();
+  else renderQuestion();
+}
+
+function useDouble() {
+  if (!session) return;
+  const acc = state.accounts[state.currentUser];
+  if (!acc || (acc.items['dobro'] || 0) <= 0) { alert('Sem itens "Dobro".'); return; }
+  acc.items['dobro'] -= 1;
+  session.doubleNext = true;
+  if (state.settings.autoSave) saveState();
+  renderProfile();
+  alert('Próxima resposta correta valerá o dobro de pontos!');
+}
+
+function useReveal() {
+  if (!session) return;
+  const acc = state.accounts[state.currentUser];
+  if (!acc || (acc.items['revelar'] || 0) <= 0) { alert('Sem itens "Revelar".'); return; }
+  const q = session.questions[session.index];
+  acc.items['revelar'] -= 1;
+  if (state.settings.autoSave) saveState();
+  renderProfile();
+  alert(`Resposta correta: "${q.a[q.correct]}"`);
+  const ansElems = Array.from(document.querySelectorAll('.answers .ans'));
+  ansElems.forEach((elmn, idx) => {
+    if (idx === q.correct) elmn.classList.add('correct');
+    elmn.onclick = null;
+  });
+}
+
+// ==================== FINALIZAÇÃO / SAIR ====================
+function finishPhase() {
+  const acc = state.currentUser ? state.accounts[state.currentUser] : null;
   if (acc) {
     acc.points = (acc.points || 0) + session.score;
     acc.level = Math.max(1, Math.floor((acc.points || 0) / 50) + 1);
     acc.best = Math.max(acc.best || 0, session.score || 0);
-    // mark progress in phasesMeta and unlocked next if exists
     const meta = state.phasesMeta.find(p => p.id === session.phaseId);
-    if (meta) meta.progress = session.questions.length; // full (5)
-    // ensure unlockedPhases
+    if (meta) meta.progress = session.questions.length;
     acc.unlockedPhases = acc.unlockedPhases || [];
     if (!acc.unlockedPhases.includes(session.phaseId)) acc.unlockedPhases.push(session.phaseId);
-    const nextPhase = state.phasesMeta.find(p => p.id === session.phaseId + 1);
-    if (nextPhase) {
-      nextPhase.unlocked = true;
-      if (!acc.unlockedPhases.includes(nextPhase.id)) acc.unlockedPhases.push(nextPhase.id);
+    const nextMeta = state.phasesMeta.find(p => p.id === session.phaseId + 1);
+    if (nextMeta) {
+      nextMeta.unlocked = true;
+      if (!acc.unlockedPhases.includes(nextMeta.id)) acc.unlockedPhases.push(nextMeta.id);
     }
   }
   alert(`Fase ${session.phaseId} concluída! Você ganhou ${session.score} pontos.`);
   session = null;
-  saveState();
+  if (state.settings.autoSave) saveState();
   renderPhaseList();
   renderProfile();
   showScreen('perfilScreen');
 }
 
-// leave early and save partial
 function endPhaseEarly() {
   if (!session) return;
-  const acc = state.accounts[state.currentUser];
+  const acc = state.currentUser ? state.accounts[state.currentUser] : null;
   if (acc) {
     acc.points = (acc.points || 0) + session.score;
     acc.level = Math.max(1, Math.floor((acc.points || 0) / 50) + 1);
   }
   session = null;
-  saveState();
+  if (state.settings.autoSave) saveState();
   renderPhaseList();
   renderProfile();
   showScreen('homeScreen');
 }
 
-// ==================== SFX beep (simple) ====================
-function playBeep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'square';
-    o.frequency.value = 600;
-    g.gain.value = (state.settings.volume / 100) * 0.06;
-    o.connect(g).connect(ctx.destination);
-    o.start();
-    setTimeout(() => { o.stop(); o.disconnect(); ctx.close(); }, 120);
-  } catch (e) { /* ignore */ }
-}
-
-// ==================== UI helpers ====================
+// ==================== UI HELPERS ====================
 function updateUI() {
-  el('welcomeTxt').innerText = state.currentUser ? 'Olá, ' + state.currentUser : 'Olá, visitante';
-  el('volText').innerText = state.settings.volume;
-  el('volumeRange').value = state.settings.volume;
-  el('musicToggle').checked = !!state.settings.music;
-  el('sfxToggle').checked = !!state.settings.sfx;
+  if (el('welcomeTxt')) el('welcomeTxt').innerText = state.currentUser ? 'Olá, ' + state.currentUser : 'Olá, visitante';
+  if (el('volText')) el('volText').innerText = state.settings.volume;
+  if (el('volumeRange')) el('volumeRange').value = state.settings.volume;
+  if (el('musicToggle')) el('musicToggle').checked = !!state.settings.music;
+  if (el('sfxToggle')) el('sfxToggle').checked = !!state.settings.sfx;
   renderPhaseList();
   renderProfile();
 }
 
 // ==================== UTILIDADES ====================
-function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
-
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }

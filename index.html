@@ -3,8 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Jogo de Perguntas — Demo</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Quiz — Perguntas & Fases (Demo)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Estilos mínimos para tema claro (o restante está em style.css) */
+    body.light-theme { background: linear-gradient(180deg,#f5f7fb 0%, #e6eef6 100%); color:#0b1320; }
+    body.light-theme .card { background: #ffffff10; color: inherit; }
+    .phase.removed { opacity: 0.5; }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -24,9 +30,9 @@
             <button class="btn" id="btnConfigs">Configurações</button>
             <button class="btn" id="btnPerfil">Perfil</button>
           </nav>
-          <hr style="border:none;height:12px"> 
+          <hr style="border:none;height:12px">
 
-          <!-- Home -->
+          <!-- Home Screen -->
           <div id="homeScreen">
             <div class="menu-grid">
               <div class="big-btn center" id="startBtn">
@@ -59,7 +65,7 @@
           <!-- Fases -->
           <div id="phasesScreen" class="hidden">
             <h3>Fases</h3>
-            <p class="small muted">Clique na fase para Jogar.</p>
+            <p class="small muted">Clique na fase para Jogar — desbloqueio sequencial.</p>
             <div class="phase-list" id="phaseList"></div>
             <div style="margin-top:12px" class="small muted">Progresso da fase atual:</div>
             <div class="progress" style="margin-top:6px"><i id="phaseProgress"></i></div>
@@ -71,8 +77,24 @@
             <div style="display:flex;gap:12px;flex-direction:column">
               <label>Volume geral: <span id="volText">100</span>%</label>
               <input type="range" id="volumeRange" min="0" max="100" value="100">
-              <label><input type="checkbox" id="musicToggle" checked> Ativar música de fundo</label>
-              <label>Efeitos Sonoros: <input type="checkbox" id="sfxToggle" checked></label>
+
+              <label style="margin-top:6px"><input type="checkbox" id="musicToggle" checked> Ativar música de fundo</label>
+              <label><input type="checkbox" id="sfxToggle" checked> Ativar efeitos sonoros</label>
+
+              <hr style="border:none;height:8px">
+
+              <label><input type="checkbox" id="autoSave" checked> Salvar automaticamente (JSONBin)</label>
+              <label><input type="checkbox" id="showHints" checked> Mostrar dicas automaticamente</label>
+
+              <label>Tema:
+                <select id="themeToggle">
+                  <option value="dark">Escuro</option>
+                  <option value="light">Claro</option>
+                </select>
+              </label>
+
+              <label>Velocidade da música: <span id="playbackRateValue">1.00</span>x</label>
+              <input type="range" id="playbackRate" min="0.5" max="1.5" step="0.05" value="1.0">
             </div>
           </div>
 
@@ -91,20 +113,22 @@
               </div>
             </div>
 
-            <hr style="border:none;height:12px"> 
+            <hr style="border:none;height:12px">
             <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
               <div class="small muted">Ranking Geral</div>
-              <button class="btn small-btn" id="showRankingBtn">Mostrar Ranking</button>
+              <div>
+                <button class="btn small-btn" id="showRankingBtn">Mostrar Ranking</button>
+              </div>
             </div>
             <div id="leaderboard" style="margin-top:8px"></div>
 
-            <hr style="border:none;height:12px"> 
+            <hr style="border:none;height:12px">
             <div id="shopContainer"></div>
           </div>
 
-          <!-- Quiz -->
+          <!-- Quiz Screen -->
           <div id="quizScreen" class="hidden">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
               <div class="small muted">Fase <span id="quizPhaseNum">1</span> · Pergunta <span id="quizIndex">1</span>/<span id="quizTotal">5</span></div>
               <div class="small muted">Pontos (sessão): <span id="scoreDisplay">0</span></div>
             </div>
@@ -130,6 +154,7 @@
                 <button class="btn" id="btnSignup">Criar conta</button>
                 <button class="btn" id="btnLogin">Entrar</button>
               </div>
+              <div class="small muted" style="margin-top:6px">OBS: este demo salva em JSONBin via API — mantenha as chaves no script.js.</div>
             </div>
           </div>
 
@@ -138,7 +163,7 @@
 
       <aside>
         <div class="card">
-          <div style="display:flex;justify-content:space-between">
+          <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <div class="small muted">Progresso global</div>
               <div style="font-weight:700;font-size:18px">Pontos: <span id="globalPoints">0</span></div>
@@ -148,12 +173,23 @@
               <div style="font-weight:700;font-size:18px" id="globalLevel">1</div>
             </div>
           </div>
-          <hr style="border:none;height:12px"> 
+          <hr style="border:none;height:12px">
           <div class="small muted">Ações rápidas</div>
           <div style="display:flex;gap:8px;margin-top:8px">
             <button class="btn" id="quickStart">Jogar Fase Atual</button>
             <button class="btn" id="openAuth">Conta</button>
           </div>
+        </div>
+
+        <div style="height:12px"></div>
+
+        <div class="card">
+          <div class="small muted">Dicas</div>
+          <ul style="margin:8px 0;padding-left:18px;color:var(--muted)">
+            <li>Complete fases para desbloquear a próxima.</li>
+            <li>Acumule pontos para subir de nível.</li>
+            <li>Visite a Loja para comprar itens úteis.</li>
+          </ul>
         </div>
       </aside>
     </div>
@@ -163,11 +199,12 @@
     </footer>
   </div>
 
-  <!-- música de fundo (pode trocar a URL por uma sua) -->
+  <!-- música de fundo (troque a URL se quiser outra faixa) -->
   <audio id="bgMusic" loop>
     <source src="https://www.bensound.com/bensound-music/bensound-creativeminds.mp3" type="audio/mp3">
   </audio>
 
+  <!-- scripts -->
   <script src="script.js"></script>
 </body>
 </html>
